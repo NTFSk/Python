@@ -10,7 +10,7 @@ browser = webdriver.Chrome()
 # 指定最长等待时间为5s，超过则抛出异常
 wait = WebDriverWait(browser, 5)
 #要爬取的网页地址
-url = 'https://wenku.baidu.com/view/43b2727e0342a8956bec0975f46527d3250ca676.html'
+url = 'https://wenku.baidu.com/view/501a1ea20408763231126edb6f1aff00bfd57048.html'
 browser.get(url)
 #将网页移动到继续阅读的按钮附近，保证可以点击到按钮
 page = browser.find_elements_by_css_selector("#html-reader-go-more > div.banner-core-wrap.super-vip")
@@ -34,9 +34,10 @@ def getText(page):
     for div in soup.select('#reader-container-inner-1'):
         for div2 in div.select('#pageNo-'+str(page)):
             for ie in div2.find_all(class_='ie-fix'):
+                print('\n'+str(page) + ':\n' + '=' * 20)
                 for p in ie.find_all(name='p'):
                     print(p.string.replace('\n', ''), end='')
-                print(str(page) + ':\n' + '=' * 20)
+                
                 
 MAX_PAGE = 10
 def main():
@@ -47,8 +48,12 @@ def main():
         #input.send_keys(i)
               
         #移动页面
-        move = browser.find_elements_by_css_selector('#pageNo-'+str(i))
-        browser.execute_script('arguments[0].scrollIntoView();', move[-1]) #拖动到可见的元素去
+        try:
+            move = browser.find_elements_by_css_selector('#pageNo-'+str(i))
+            browser.execute_script('arguments[0].scrollIntoView();', move[-1])  #拖动到可见的元素去
+        #捕捉页码异常
+        except IndexError:
+            print('\n'+"未找到指定页数……")
         sleep(1)
         #pyautogui.press('enter')
         sleep(2)
