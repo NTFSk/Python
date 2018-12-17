@@ -114,7 +114,7 @@ def get_from_db(contents):
     cur = text_db.cursor()
     s = cur.execute("select * from tx")
     for row in s:
-        contents.insert(END, "\n第" + row[0] + "页:" + "=" * 20)
+        contents.insert(END, "\n第" + row[0] + "页:" + "=" * 20 + '\n')
         contents.insert(END, row[1])
         
 
