@@ -9,7 +9,10 @@ from tkinter import *
 from tkinter.scrolledtext import ScrolledText
 import sqlite3
 
-browser = webdriver.Chrome()
+#browser = webdriver.Chrome()
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument('--headless')
+browser = webdriver.Chrome(chrome_options=chrome_options)
 # 指定最长等待时间为7s，超过则抛出异常
 wait = WebDriverWait(browser, 7)
 # 创建数据库
@@ -20,7 +23,7 @@ text_db = sqlite3.connect('D:/text.db')
 #text_db.execute(sqlstr)
 
 MAX_PAGE=10
-def go(url):
+def go(url,contents):
     """
     清空数据库
     用循环控制页码的改变
@@ -29,14 +32,16 @@ def go(url):
     cur = text_db.cursor()
     cur.execute("DELETE FROM tx where 1 = 1")
     text_db.commit()
-    print("数据删除完毕")
-    page_expand(url)
+    #print("数据库已清空")
+    contents.insert(END, "数据库已清空\n")
+    page_expand(url,contents)
     for page in range(1, MAX_PAGE + 1):
-        index_page(url, page)
+        index_page(page,contents)
 
 #页面跳转及展开
-def page_expand(url):
+def page_expand(url, contents):
     #跳转到要爬取的网页
+    contents.insert(END,"正在进入目标页面,请耐心等待……\n")
     browser.get(url)
     # 将网页移动到继续阅读的按钮附近，保证可以点击到按钮
     page_move = browser.find_elements_by_css_selector("#html-reader-go-more > div.banner-core-wrap.super-vip")
@@ -48,23 +53,24 @@ def page_expand(url):
     sleep(3)
 
 
-def index_page(url,page):
+def index_page(page,contents):
     """
     根据参数page，移动到新页面的位置
     网页移动(改变页码)后，执行获取文档代码
     """
     try:
+        #页面移动
         move = browser.find_elements_by_css_selector('#pageNo-'+str(page))
         browser.execute_script('arguments[0].scrollIntoView();', move[-1])  # 拖动到可见的元素去
-        #移动后等待3秒
-        sleep(3)
-        get_text(page)
+        #移动后等待2秒
+        sleep(2)
+        get_text(page,contents)
     except Exception as e:
         print(e)
         return FALSE
 
 
-def get_text(page):
+def get_text(page,contents):
     """
     提取节点内的文字，执行存入数据库代码
     """
@@ -74,6 +80,7 @@ def get_text(page):
     soup = BeautifulSoup(html, 'lxml')
 
     #s用来临时保存每一页的文字
+    contents.insert(END,"正在爬取第"+str(page)+"页...\n")
     s=''
     # 查找结点
     for div in soup.select('#reader-container-inner-1'):
@@ -88,11 +95,11 @@ def get_text(page):
                     p.string.replace('"', '\"')
                     s+=p.string
         #存入数据库
-        save_to_db(page,s)
+        save_to_db(page,s,contents)
         sleep(1)
 
 
-def save_to_db(page,result):
+def save_to_db(page,result,contents):
     """
     保存至sqliteDB
     """
@@ -101,10 +108,12 @@ def save_to_db(page,result):
         sqlstr = "INSERT INTO tx(page,text) VALUES(\'"+str(page)+"\',\'"+result+"\')"
         cur.execute(sqlstr)
         text_db.commit()
-        print("数据录入完成")
-    except Exception as e:
-        print(e)
-        print('录入失败')
+        #print("数据录入完成")
+        contents.insert(END,"第"+str(page)+"页数据录入完成...\n")
+    except IndexError:
+        #print(e)
+        #print('录入失败')
+        contents.insert(END, "页码错误，录入失败\n")
 
 
 def get_from_db(contents):
@@ -138,7 +147,7 @@ def main():
     url_text.pack(side=LEFT, expand=True, fill=X)
     url_text.insert(0, "<请将网址填写到此处>")
     # 三个按钮
-    Button(text='爬取数据', command=lambda: go(url_text.get())).pack(side=LEFT)
+    Button(text='爬取数据', command=lambda: go(url_text.get(),contents)).pack(side=LEFT)
     Button(text='显示文本', command=lambda: get_from_db(contents)).pack(side=LEFT)
     Button(text='清空文本', command=lambda: clear(contents)).pack(side=LEFT)
     mainloop()
