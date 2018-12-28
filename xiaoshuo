@@ -1,0 +1,93 @@
+import sqlite3
+from lxml import etree
+import requests
+from tkinter import *
+from tkinter import ttk
+from tkinter.scrolledtext import ScrolledText
+
+# 创建数据库
+jason = sqlite3.connect('D:/jason.db')
+#创建表的SQL语句,表名为book
+sqlstr = "create table if not exists 'book'(name varchar(40), author varchar(20),zt varchar(20),type varchar(20))"
+# 执行SQL语句
+jason.execute(sqlstr)
+
+def getBook(page,contents):
+    cur = jason.cursor()
+    cur.execute("DELETE FROM book where 1 = 1")
+    jason.commit()
+    #爬取前50页
+    for i in range(1, page):
+        url = 'http://www.59xs.com/shuku/'+ str(i)+'.html' 
+        r = requests.get(url)
+        #指定编码格式
+        r.encoding='gbk'
+        #r.text是要爬取的网页的源码
+        #调用HTML类进行初始化，构造一个XPath解析对象
+        html = etree.HTML(r.text,parser=etree.HTMLParser(encoding='utf-8'))
+        #每一页的书籍清单
+        #book_list = html.xpath('//*[@id="sitebox"]')
+        #书名
+        book_name = html.xpath('//*[@id="sitebox"]//h3/a/text()')
+        #作者
+        book_author = html.xpath('//*[@id="sitebox"]//dd/span[1]/text()')
+        #状态
+        book_zt = html.xpath('//*[@id="sitebox"]//dd/span[2]/text()')
+        #类型
+        book_type = html.xpath('//*[@id="sitebox"]//dd/span[3]/text()')
+        saveDB(i,book_name,book_author,book_zt,book_type,contents)
+
+def saveDB(page,book_name,book_author,book_zt,book_type,contents):
+    try:
+        cur = jason.cursor()
+        for i in range(1,20):
+            sqlstr = "INSERT INTO book(name,author,zt,type) VALUES("+"\'"+str(book_name[i])+"\',\'"+str(book_author[i])+"\',\'"+str(book_zt[i])+"\',\'"+str(book_type[i])+"\')"
+            cur.execute(sqlstr)
+        jason.commit()
+        contents.insert(END,"第"+str(page)+"页数据录入完成\n")
+        contents.update()
+    except IndexError:
+        contents.insert(END, "第" + str(page) + "页录入失败\n")
+        contents.update()
+
+def printDB(typeList, contents):
+    contents.delete('1.0', END)
+    cur = jason.cursor()
+    s = cur.execute("select * from book where type like"+"\'%"+str(typeList.get())+"%\'")
+    for row in s:
+        contents.insert(END,"书名: "+ row[0]+"     ")
+        contents.insert(END,"作者: "+ row[1]+'     ')
+        contents.insert(END,"状态: "+ row[2]+'     ')
+        contents.insert(END,"类型: "+ row[3]+'\n')
+
+
+
+def main():
+    win = Tk()
+    win.title("小说爬取")
+    win.geometry('750x500+500+200')
+    # 多行文本框
+    contents = ScrolledText()
+    contents.pack(side=BOTTOM, expand=True, fill=BOTH)
+    # 单行文本框
+    page_text = Entry()
+    page_text.pack(side=LEFT, expand=True, fill=X)
+    page_text.insert(0, "<请填写要爬取的最大页数>")
+
+    #下拉列表
+    tp= StringVar()
+    typeList = ttk.Combobox(win, width=12, textvariable=tp,state='readonly')
+    typeList['values'] = ('','武侠','玄幻','言情','科幻','都市','历史')     # 设置下拉列表的值
+    typeList.pack(side=LEFT)  # 设置其在界面中出现的位置  column代表列   row 代表行
+    #typeList.current(0)    # 设置下拉列表默认显示的值，0为 numberChosen['values'] 的下标值
+    #typeList.bind("<<ComboboxSelected>>",DBselect(typeList,contents))
+    
+    #button
+    Button(text='爬取数据', command=lambda: getBook(int(page_text.get())+1,contents)).pack(side=LEFT)
+    Button(text='显示数据', command=lambda: printDB(typeList,contents)).pack(side=LEFT)
+    mainloop()
+    
+if __name__ == '__main__':
+    main()
+        
+        
